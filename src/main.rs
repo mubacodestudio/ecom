@@ -40,4 +40,6 @@ async fn main() {
         .allow_methods([Method::POST, Method::GET, Method::PUT, Method::DELETE])
         .allow_credentials(true)
         .allow_headers([AUTHORIZATION, CONTENT_TYPE, ACCEPT]);
+
+    let app = createRouter
 }
