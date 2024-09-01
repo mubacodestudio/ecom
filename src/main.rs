@@ -1,3 +1,6 @@
+mod handler;
+mod model;
+mod routes;
 mod utils;
 
 use axum::http::{
@@ -5,8 +8,11 @@ use axum::http::{
     HeaderValue, Method,
 };
 use dotenv::dotenv;
+use routes::create_router;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utils::config::Config;
 
 pub struct AppStatus {
@@ -17,6 +23,13 @@ pub struct AppStatus {
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "svelte_axum_project=debug".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     let config = Config::init();
 
@@ -41,5 +54,14 @@ async fn main() {
         .allow_credentials(true)
         .allow_headers([AUTHORIZATION, CONTENT_TYPE, ACCEPT]);
 
-    let app = createRouter
+    let app = create_router(Arc::new(AppStatus {
+        db: pool.clone(),
+        env: config.clone(),
+    }))
+    .layer(cors);
+
+    tracing::info!("listening on http://0.0.0.0:8000");
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
+    axum::serve(listener, app).await.unwrap()
 }
